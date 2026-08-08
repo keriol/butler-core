@@ -1,6 +1,12 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any
+
 from butler_core.models import ToolDefinition
+
+
+if TYPE_CHECKING:
+    from butler_core.execution import ExecutionResult
 
 
 class ToolRegistry:
@@ -23,3 +29,20 @@ class ToolRegistry:
 
     def names(self) -> list[str]:
         return sorted(self._tools.keys())
+
+    def execute(
+        self,
+        name: str,
+        **arguments: Any,
+    ) -> "ExecutionResult":
+        from butler_core.execution import (
+            ExecutionEngine,
+            ExecutionRequest,
+        )
+
+        return ExecutionEngine(self).execute(
+            ExecutionRequest(
+                tool_name=name,
+                arguments=arguments,
+            )
+        )
