@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "butler-core"
+version = "0.1.0.dev0"
+description = "Provider-neutral core contracts for Butler runtimes"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "Apache-2.0"}
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=9,<10",
+    "build>=1.2",
+    "wheel>=0.45",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
