@@ -30,4 +30,9 @@ The public output surface includes:
 - `OutputDeliveryResult`
 
 Applications and integrations own rendering, routing and concrete delivery.
+
+For asynchronous providers, `OutputDeliveryStatus.ACCEPTED` means that the
+provider accepted the dispatch request but delivery has not been verified.
+`DELIVERED` is reserved for delivery that the adapter can positively confirm.
+
 Butler Core does not depend on a device platform, voice system or transport.
