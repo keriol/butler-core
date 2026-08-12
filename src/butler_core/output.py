@@ -32,6 +32,7 @@ class OutputRequest:
 
 
 class OutputDeliveryStatus(str, Enum):
+    ACCEPTED = "accepted"
     DELIVERED = "delivered"
     UNSUPPORTED = "unsupported"
     FAILED = "failed"
@@ -45,8 +46,19 @@ class OutputDeliveryResult:
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
     @property
-    def ok(self) -> bool:
+    def accepted(self) -> bool:
+        return self.status in {
+            OutputDeliveryStatus.ACCEPTED,
+            OutputDeliveryStatus.DELIVERED,
+        }
+
+    @property
+    def delivered(self) -> bool:
         return self.status is OutputDeliveryStatus.DELIVERED
+
+    @property
+    def ok(self) -> bool:
+        return self.accepted
 
 
 class OutputAdapter(Protocol):

@@ -76,6 +76,9 @@ def test_request_carries_delivery_context() -> None:
 
 
 def test_delivery_result_normalizes_outcomes() -> None:
+    accepted = OutputDeliveryResult(
+        status=OutputDeliveryStatus.ACCEPTED
+    )
     delivered = OutputDeliveryResult(
         status=OutputDeliveryStatus.DELIVERED
     )
@@ -89,8 +92,20 @@ def test_delivery_result_normalizes_outcomes() -> None:
         error_message="Provider unavailable.",
     )
 
+    assert accepted.accepted is True
+    assert accepted.delivered is False
+    assert accepted.ok is True
+
+    assert delivered.accepted is True
+    assert delivered.delivered is True
     assert delivered.ok is True
+
+    assert unsupported.accepted is False
+    assert unsupported.delivered is False
     assert unsupported.ok is False
+
+    assert failed.accepted is False
+    assert failed.delivered is False
     assert failed.ok is False
 
 
