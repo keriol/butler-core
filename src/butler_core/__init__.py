@@ -18,6 +18,10 @@ from butler_core.output import (
     OutputPriority,
     OutputRequest,
 )
+from butler_core.plugins import (
+    ButlerPlugin,
+    PluginRegistry,
+)
 from butler_core.planner import (
     ButlerPlanner,
     PlannerProvider,
@@ -29,6 +33,8 @@ from butler_core.registry import ToolRegistry
 
 
 __all__ = [
+    "PluginRegistry",
+    "ButlerPlugin",
     "OutputAdapter",
     "OutputDeliveryResult",
     "OutputDeliveryStatus",
