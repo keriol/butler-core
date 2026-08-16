@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextvars import ContextVar
 from time import sleep
 import unittest
 
@@ -59,6 +60,53 @@ class ExecutionEngineTests(unittest.TestCase):
         )
         self.assertTrue(result.execution_id)
         self.assertGreaterEqual(result.duration_ms, 0)
+
+    def test_execution_context_is_propagated_to_tool_thread(
+        self,
+    ) -> None:
+        marker = ContextVar(
+            "butler_execution_test_context",
+            default="missing",
+        )
+
+        token = marker.set(
+            "interaction-origin"
+        )
+
+        try:
+            registry = ToolRegistry()
+
+            register_tool(
+                registry,
+                name="context_reader",
+                handler=marker.get,
+            )
+
+            result = (
+                ExecutionEngine(
+                    registry
+                ).execute(
+                    ExecutionRequest(
+                        tool_name=(
+                            "context_reader"
+                        )
+                    )
+                )
+            )
+
+            self.assertTrue(
+                result.ok
+            )
+
+            self.assertEqual(
+                result.value,
+                "interaction-origin",
+            )
+
+        finally:
+            marker.reset(
+                token
+            )
 
     def test_action_requires_confirmation(self) -> None:
         registry = ToolRegistry()
