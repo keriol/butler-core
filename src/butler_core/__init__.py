@@ -6,6 +6,13 @@ from butler_core.execution import (
     ExecutionStatus,
     validate_arguments,
 )
+from butler_core.jobs import (
+    JobRequest,
+    JobResult,
+    JobRunner,
+    JobStatus,
+    JobStore,
+)
 from butler_core.models import (
     ToolDefinition,
     ToolPermission,
@@ -40,6 +47,11 @@ __all__ = [
     "ExecutionRequest",
     "ExecutionResult",
     "ExecutionStatus",
+    "JobRequest",
+    "JobResult",
+    "JobRunner",
+    "JobStatus",
+    "JobStore",
     "ButlerPlanner",
     "PlannerProvider",
     "PlannerResult",
