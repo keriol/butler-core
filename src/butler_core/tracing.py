@@ -22,6 +22,14 @@ class TraceStatus(str, Enum):
     ERROR = "error"
 
 
+class TraceSeverity(str, Enum):
+    """Operational impact classification independent from event status."""
+
+    NORMAL = "normal"
+    DEGRADED = "degraded"
+    CRITICAL = "critical"
+
+
 TraceAttribute = str | int | float | bool | None
 
 
@@ -98,6 +106,7 @@ class TraceEvent:
     operation: str
     message: str
     status: TraceStatus = TraceStatus.NORMAL
+    severity: TraceSeverity = TraceSeverity.NORMAL
     duration_ms: float | None = None
     attributes: Mapping[str, TraceAttribute] = field(
         default_factory=dict
@@ -116,6 +125,22 @@ class NullTracer:
 
     def emit(self, event: TraceEvent) -> None:
         del event
+
+
+def safe_emit(tracer: Tracer, event: TraceEvent) -> bool:
+    """Emit an event without allowing observability to break execution.
+
+    Tracer implementations are external consumers from Core's perspective.
+    Their failures must therefore remain observational failures rather than
+    becoming Butler execution failures.
+    """
+
+    try:
+        tracer.emit(event)
+    except Exception:
+        return False
+
+    return True
 
 
 _current_trace_context: ContextVar[TraceContext | None] = ContextVar(
@@ -156,12 +181,14 @@ def traced_span(
     message: str,
     attributes: Mapping[str, TraceAttribute] | None = None,
     context: TraceContext | None = None,
+    error_severity: TraceSeverity = TraceSeverity.DEGRADED,
 ) -> Iterator[TraceContext]:
     """Create a child span and emit its terminal event.
 
     The helper intentionally emits only the terminal event. Consumers that
     need explicit start events can emit them themselves without changing the
-    Core contract.
+    Core contract. Tracer failures are swallowed through ``safe_emit`` so
+    instrumentation cannot change the observed execution outcome.
     """
 
     parent = context or current_trace_context()
@@ -172,32 +199,36 @@ def traced_span(
         try:
             yield span
         except Exception as exc:
-            tracer.emit(
+            safe_emit(
+                tracer,
                 TraceEvent(
                     context=span,
                     component=component,
                     operation=operation,
                     message=message,
                     status=TraceStatus.ERROR,
+                    severity=error_severity,
                     duration_ms=_elapsed_ms(started),
                     attributes={
                         **dict(attributes or {}),
                         "error_type": type(exc).__name__,
                     },
-                )
+                ),
             )
             raise
         else:
-            tracer.emit(
+            safe_emit(
+                tracer,
                 TraceEvent(
                     context=span,
                     component=component,
                     operation=operation,
                     message=message,
                     status=TraceStatus.SUCCESS,
+                    severity=TraceSeverity.NORMAL,
                     duration_ms=_elapsed_ms(started),
                     attributes=dict(attributes or {}),
-                )
+                ),
             )
 
 
