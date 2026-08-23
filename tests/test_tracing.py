@@ -6,8 +6,10 @@ from butler_core import (
     NullTracer,
     TraceContext,
     TraceEvent,
+    TraceSeverity,
     TraceStatus,
     current_trace_context,
+    safe_emit,
     trace_context,
     traced_span,
 )
@@ -19,6 +21,12 @@ class RecordingTracer:
 
     def emit(self, event: TraceEvent) -> None:
         self.events.append(event)
+
+
+class BrokenTracer:
+    def emit(self, event: TraceEvent) -> None:
+        del event
+        raise RuntimeError("tracer failed")
 
 
 class TracingTests(unittest.TestCase):
@@ -69,6 +77,7 @@ class TracingTests(unittest.TestCase):
         self.assertEqual(len(tracer.events), 1)
         event = tracer.events[0]
         self.assertEqual(event.status, TraceStatus.SUCCESS)
+        self.assertEqual(event.severity, TraceSeverity.NORMAL)
         self.assertEqual(event.component, "execution")
         self.assertEqual(event.context.trace_id, root.trace_id)
         self.assertGreaterEqual(event.duration_ms or 0, 0)
@@ -88,7 +97,62 @@ class TracingTests(unittest.TestCase):
         self.assertEqual(len(tracer.events), 1)
         event = tracer.events[0]
         self.assertEqual(event.status, TraceStatus.ERROR)
+        self.assertEqual(event.severity, TraceSeverity.DEGRADED)
         self.assertEqual(event.attributes["error_type"], "RuntimeError")
+
+    def test_traced_span_can_mark_error_critical(self) -> None:
+        tracer = RecordingTracer()
+
+        with self.assertRaises(RuntimeError):
+            with traced_span(
+                tracer,
+                component="runtime",
+                operation="critical.operation",
+                message="Critical operation failed",
+                error_severity=TraceSeverity.CRITICAL,
+            ):
+                raise RuntimeError("boom")
+
+        self.assertEqual(
+            tracer.events[0].severity,
+            TraceSeverity.CRITICAL,
+        )
+
+    def test_safe_emit_contains_tracer_failure(self) -> None:
+        emitted = safe_emit(
+            BrokenTracer(),
+            TraceEvent(
+                context=TraceContext.root(),
+                component="test",
+                operation="broken-tracer",
+                message="ignored failure",
+            ),
+        )
+
+        self.assertFalse(emitted)
+
+    def test_tracer_failure_does_not_change_successful_span(self) -> None:
+        reached = False
+
+        with traced_span(
+            BrokenTracer(),
+            component="execution",
+            operation="tool.execute",
+            message="Executed tool",
+        ):
+            reached = True
+
+        self.assertTrue(reached)
+
+    def test_original_exception_survives_tracer_failure(self) -> None:
+        with self.assertRaisesRegex(ValueError, "original failure"):
+            with traced_span(
+                BrokenTracer(),
+                component="execution",
+                operation="tool.execute",
+                message="Executed tool",
+            ):
+                raise ValueError("original failure")
 
     def test_null_tracer_is_safe_noop(self) -> None:
         NullTracer().emit(
