@@ -5,6 +5,19 @@ from dataclasses import dataclass, replace
 from enum import Enum
 from typing import Any, Protocol
 
+from butler_core.tracing import (
+    NullTracer,
+    TraceContext,
+    TraceEvent,
+    TraceLevel,
+    TraceSeverity,
+    TraceStatus,
+    Tracer,
+    current_trace_context,
+    safe_emit,
+    trace_context,
+)
+
 
 class ResolutionStatus(str, Enum):
     HANDLED = "handled"
@@ -91,29 +104,67 @@ class DeterministicResolutionPipeline:
         resolvers: Iterable[ResolverDefinition] = (),
         *,
         fallback: RequestResolver | None = None,
+        tracer: Tracer | None = None,
     ) -> None:
         self._resolvers = tuple(resolvers)
         self._fallback = fallback
+        self._tracer = tracer or NullTracer()
 
     def resolve(
         self,
         request: Any,
     ) -> ResolutionResult:
-        for resolver in self._resolvers:
-            result = self._call_resolver(
-                resolver,
-                request,
+        root = current_trace_context() or TraceContext.root()
+
+        with trace_context(root):
+            for resolver in self._resolvers:
+                self._emit(
+                    root,
+                    operation="resolver.attempt",
+                    message="Resolver attempted",
+                    level=TraceLevel.DIAGNOSTIC,
+                    attributes={"resolver": resolver.name},
+                )
+
+                result = self._call_resolver(
+                    resolver,
+                    request,
+                )
+
+                if result.status is ResolutionStatus.NOT_HANDLED:
+                    self._emit(
+                        root,
+                        operation="resolver.declined",
+                        message="Resolver declined request",
+                        level=TraceLevel.DIAGNOSTIC,
+                        attributes={"resolver": resolver.name},
+                    )
+                    continue
+
+                self._emit_resolution_result(root, result)
+                return result
+
+            if self._fallback is None:
+                result = ResolutionResult.not_handled_result()
+                self._emit(
+                    root,
+                    operation="resolution.not_handled",
+                    message="No resolver handled request",
+                    level=TraceLevel.ACTIVITY,
+                    status=TraceStatus.NORMAL,
+                )
+                return result
+
+            self._emit(
+                root,
+                operation="fallback.engaged",
+                message="Resolution fallback engaged",
+                level=TraceLevel.OPERATIONAL,
+                status=TraceStatus.WARNING,
             )
-
-            if result.status is ResolutionStatus.NOT_HANDLED:
-                continue
-
+            result = self._call_fallback(request)
+            self._emit_resolution_result(root, result)
             return result
-
-        if self._fallback is None:
-            return ResolutionResult.not_handled_result()
-
-        return self._call_fallback(request)
 
     def _call_resolver(
         self,
@@ -175,4 +226,85 @@ class DeterministicResolutionPipeline:
         return replace(
             result,
             used_fallback=True,
+        )
+
+    def _emit_resolution_result(
+        self,
+        context: TraceContext,
+        result: ResolutionResult,
+    ) -> None:
+        attributes = {
+            "resolution_status": result.status.value,
+            "used_fallback": result.used_fallback,
+        }
+        if result.resolver_name is not None:
+            attributes["resolver"] = result.resolver_name
+        if result.error_code is not None:
+            attributes["error_code"] = result.error_code
+
+        if result.status is ResolutionStatus.HANDLED:
+            self._emit(
+                context,
+                operation=(
+                    "fallback.handled"
+                    if result.used_fallback
+                    else "resolver.handled"
+                ),
+                message=(
+                    "Fallback handled request"
+                    if result.used_fallback
+                    else "Resolver handled request"
+                ),
+                level=(
+                    TraceLevel.OPERATIONAL
+                    if result.used_fallback
+                    else TraceLevel.ACTIVITY
+                ),
+                status=TraceStatus.SUCCESS,
+                attributes=attributes,
+            )
+            return
+
+        if result.status is ResolutionStatus.ERROR:
+            self._emit(
+                context,
+                operation=(
+                    "fallback.error"
+                    if result.used_fallback
+                    else "resolver.error"
+                ),
+                message=(
+                    "Resolution fallback failed"
+                    if result.used_fallback
+                    else "Resolver failed"
+                ),
+                level=TraceLevel.OPERATIONAL,
+                status=TraceStatus.ERROR,
+                severity=TraceSeverity.DEGRADED,
+                attributes=attributes,
+            )
+
+    def _emit(
+        self,
+        context: TraceContext,
+        *,
+        operation: str,
+        message: str,
+        level: TraceLevel,
+        status: TraceStatus = TraceStatus.NORMAL,
+        severity: TraceSeverity = TraceSeverity.NORMAL,
+        attributes: dict[str, str | bool] | None = None,
+    ) -> None:
+        safe_emit(
+            self._tracer,
+            TraceEvent(
+                context=context,
+                component="resolution",
+                operation=operation,
+                message=message,
+                level=level,
+                status=status,
+                severity=severity,
+                attributes=attributes or {},
+            ),
         )
