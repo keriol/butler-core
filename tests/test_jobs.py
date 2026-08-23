@@ -8,6 +8,8 @@ from butler_core import (
     JobRunner,
     JobStatus,
     JobStore,
+    TraceContext,
+    trace_context,
 )
 
 
@@ -18,6 +20,47 @@ def test_job_request_generates_unique_id():
     assert first.job_id
     assert second.job_id
     assert first.job_id != second.job_id
+
+
+def test_job_request_trace_context_round_trip():
+    root = TraceContext.root()
+    request = JobRequest(
+        operation="example",
+        metadata={"source": "test"},
+    ).with_trace_context(root)
+
+    assert request.trace_context == root
+    assert request.metadata["source"] == "test"
+
+
+def test_job_request_captures_current_trace():
+    root = TraceContext.root()
+
+    with trace_context(root):
+        request = JobRequest(operation="example").with_current_trace()
+
+    assert request.trace_context == root
+
+
+def test_job_request_without_current_trace_stays_unlinked():
+    request = JobRequest(
+        operation="example",
+        metadata={"source": "test"},
+    ).with_current_trace()
+
+    assert request.trace_context is None
+    assert request.metadata == {"source": "test"}
+
+
+def test_job_request_trace_handoff_preserves_identity():
+    root = TraceContext.root()
+    request = JobRequest(operation="example").with_trace_context(root)
+    restored = request.trace_context
+
+    assert restored is not None
+    assert restored.trace_id == root.trace_id
+    assert restored.span_id == root.span_id
+    assert restored.parent_span_id == root.parent_span_id
 
 
 def test_job_status_terminal_contract():
