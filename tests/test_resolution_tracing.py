@@ -1,6 +1,7 @@
 from butler_core import (
     DeterministicResolutionPipeline,
     ResolutionResult,
+    ResolverDefinition,
     TraceContext,
     TraceEvent,
     TraceLevel,
