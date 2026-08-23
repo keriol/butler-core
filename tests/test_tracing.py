@@ -6,6 +6,7 @@ from butler_core import (
     NullTracer,
     TraceContext,
     TraceEvent,
+    TraceLevel,
     TraceSeverity,
     TraceStatus,
     current_trace_context,
@@ -60,6 +61,51 @@ class TracingTests(unittest.TestCase):
             )
         )
 
+    def test_trace_level_order_is_cumulative(self) -> None:
+        self.assertTrue(TraceLevel.DEBUG.includes(TraceLevel.DEBUG))
+        self.assertTrue(TraceLevel.DEBUG.includes(TraceLevel.RELEASE))
+        self.assertTrue(
+            TraceLevel.DIAGNOSTIC.includes(TraceLevel.ACTIVITY)
+        )
+        self.assertTrue(
+            TraceLevel.ACTIVITY.includes(TraceLevel.OPERATIONAL)
+        )
+        self.assertTrue(
+            TraceLevel.OPERATIONAL.includes(TraceLevel.RELEASE)
+        )
+        self.assertFalse(
+            TraceLevel.RELEASE.includes(TraceLevel.OPERATIONAL)
+        )
+        self.assertFalse(
+            TraceLevel.ACTIVITY.includes(TraceLevel.DIAGNOSTIC)
+        )
+
+    def test_critical_event_is_promoted_to_release(self) -> None:
+        event = TraceEvent(
+            context=TraceContext.root(),
+            component="runtime",
+            operation="critical.operation",
+            message="Critical failure",
+            level=TraceLevel.DEBUG,
+            status=TraceStatus.ERROR,
+            severity=TraceSeverity.CRITICAL,
+        )
+
+        self.assertEqual(event.level, TraceLevel.RELEASE)
+        self.assertEqual(event.severity, TraceSeverity.CRITICAL)
+
+    def test_non_critical_event_keeps_declared_level(self) -> None:
+        event = TraceEvent(
+            context=TraceContext.root(),
+            component="runtime",
+            operation="diagnostic.operation",
+            message="Diagnostic detail",
+            level=TraceLevel.DIAGNOSTIC,
+            severity=TraceSeverity.DEGRADED,
+        )
+
+        self.assertEqual(event.level, TraceLevel.DIAGNOSTIC)
+
     def test_traced_span_emits_success(self) -> None:
         tracer = RecordingTracer()
         root = TraceContext.root()
@@ -78,6 +124,7 @@ class TracingTests(unittest.TestCase):
         event = tracer.events[0]
         self.assertEqual(event.status, TraceStatus.SUCCESS)
         self.assertEqual(event.severity, TraceSeverity.NORMAL)
+        self.assertEqual(event.level, TraceLevel.ACTIVITY)
         self.assertEqual(event.component, "execution")
         self.assertEqual(event.context.trace_id, root.trace_id)
         self.assertGreaterEqual(event.duration_ms or 0, 0)
@@ -98,6 +145,7 @@ class TracingTests(unittest.TestCase):
         event = tracer.events[0]
         self.assertEqual(event.status, TraceStatus.ERROR)
         self.assertEqual(event.severity, TraceSeverity.DEGRADED)
+        self.assertEqual(event.level, TraceLevel.ACTIVITY)
         self.assertEqual(event.attributes["error_type"], "RuntimeError")
 
     def test_traced_span_can_mark_error_critical(self) -> None:
@@ -109,14 +157,14 @@ class TracingTests(unittest.TestCase):
                 component="runtime",
                 operation="critical.operation",
                 message="Critical operation failed",
+                level=TraceLevel.DEBUG,
                 error_severity=TraceSeverity.CRITICAL,
             ):
                 raise RuntimeError("boom")
 
-        self.assertEqual(
-            tracer.events[0].severity,
-            TraceSeverity.CRITICAL,
-        )
+        event = tracer.events[0]
+        self.assertEqual(event.severity, TraceSeverity.CRITICAL)
+        self.assertEqual(event.level, TraceLevel.RELEASE)
 
     def test_safe_emit_contains_tracer_failure(self) -> None:
         emitted = safe_emit(
