@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import Enum
 from typing import Any, Protocol
+
+from butler_core.tracing import TraceContext, current_trace_context
 
 
 class OutputKind(str, Enum):
@@ -29,6 +31,35 @@ class OutputRequest:
     locale: str | None = None
     metadata: Mapping[str, Any] = field(default_factory=dict)
     correlation_id: str | None = None
+
+    @property
+    def trace_context(self) -> TraceContext | None:
+        """Restore originating Butler trace context from output metadata."""
+
+        return TraceContext.from_metadata(self.metadata)
+
+    def with_trace_context(
+        self,
+        context: TraceContext,
+    ) -> "OutputRequest":
+        """Return an immutable copy carrying trace correlation metadata."""
+
+        return replace(
+            self,
+            metadata={
+                **dict(self.metadata),
+                **context.to_metadata(),
+            },
+        )
+
+    def with_current_trace(self) -> "OutputRequest":
+        """Attach the current Butler trace when one exists."""
+
+        context = current_trace_context()
+        if context is None:
+            return self
+
+        return self.with_trace_context(context)
 
 
 class OutputDeliveryStatus(str, Enum):

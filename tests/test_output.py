@@ -7,6 +7,8 @@ from butler_core import (
     OutputKind,
     OutputPriority,
     OutputRequest,
+    TraceContext,
+    trace_context,
 )
 
 
@@ -55,6 +57,7 @@ def test_request_defaults_are_neutral() -> None:
     assert request.locale is None
     assert request.metadata == {}
     assert request.correlation_id is None
+    assert request.trace_context is None
 
 
 def test_request_carries_delivery_context() -> None:
@@ -73,6 +76,60 @@ def test_request_carries_delivery_context() -> None:
     assert request.locale == "en-GB"
     assert request.metadata == {"source": "workflow"}
     assert request.correlation_id == "job-42"
+
+
+def test_output_request_preserves_explicit_trace_context() -> None:
+    root = TraceContext.root()
+    request = OutputRequest(
+        content="Done.",
+        kind=OutputKind.NOTIFICATION,
+        metadata={"source": "workflow"},
+        correlation_id="job-42",
+    ).with_trace_context(root)
+
+    assert request.trace_context == root
+    assert request.metadata["source"] == "workflow"
+    assert request.correlation_id == "job-42"
+
+
+def test_output_request_can_capture_current_trace() -> None:
+    root = TraceContext.root()
+    original = OutputRequest(
+        content="Done.",
+        kind=OutputKind.NOTIFICATION,
+    )
+
+    with trace_context(root):
+        linked = original.with_current_trace()
+
+    assert linked is not original
+    assert linked.trace_context == root
+
+
+def test_output_request_does_not_invent_trace() -> None:
+    request = OutputRequest(
+        content="Done.",
+        kind=OutputKind.NOTIFICATION,
+    )
+
+    assert request.with_current_trace() is request
+    assert request.trace_context is None
+
+
+def test_adapter_receives_linked_trace_context() -> None:
+    adapter = RecordingAdapter()
+    root = TraceContext.root()
+    request = OutputRequest(
+        content="Hello.",
+        kind=OutputKind.SPEECH,
+        correlation_id="execution-7",
+    ).with_trace_context(root)
+
+    result = adapter.deliver(request)
+
+    assert result.ok is True
+    assert adapter.requests[0].trace_context == root
+    assert adapter.requests[0].correlation_id == "execution-7"
 
 
 def test_delivery_result_normalizes_outcomes() -> None:
