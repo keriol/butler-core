@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import Enum
 from typing import Any, Protocol
 from uuid import uuid4
+
+from butler_core.tracing import TraceContext, current_trace_context
 
 
 class JobStatus(str, Enum):
@@ -39,6 +41,30 @@ class JobRequest:
     job_id: str = field(
         default_factory=lambda: str(uuid4())
     )
+
+    @property
+    def trace_context(self) -> TraceContext | None:
+        """Restore the originating Butler trace when metadata carries one."""
+
+        return TraceContext.from_metadata(self.metadata)
+
+    def with_trace_context(
+        self,
+        context: TraceContext | None,
+    ) -> JobRequest:
+        """Return a copy carrying ``context`` without altering other metadata."""
+
+        if context is None:
+            return self
+
+        metadata = dict(self.metadata)
+        metadata.update(context.to_metadata())
+        return replace(self, metadata=metadata)
+
+    def with_current_trace(self) -> JobRequest:
+        """Capture the current Butler trace for later asynchronous execution."""
+
+        return self.with_trace_context(current_trace_context())
 
 
 @dataclass(frozen=True)
