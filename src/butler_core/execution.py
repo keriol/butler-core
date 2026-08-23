@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from contextvars import copy_context
 from concurrent.futures import (
     ThreadPoolExecutor,
     TimeoutError as FutureTimeoutError,
@@ -321,7 +322,10 @@ class ExecutionEngine:
             thread_name_prefix="butler-tool",
         )
 
+        execution_context = copy_context()
+
         future = executor.submit(
+            execution_context.run,
             tool.handler,
             **dict(request.arguments),
         )
