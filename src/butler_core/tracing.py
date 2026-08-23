@@ -30,6 +30,39 @@ class TraceSeverity(str, Enum):
     CRITICAL = "critical"
 
 
+class TraceLevel(str, Enum):
+    """Ordered observability verbosity contract.
+
+    A host configured at one level retains that level and every level above
+    it. ``RELEASE`` is therefore the safest/least verbose baseline while
+    ``DEBUG`` enables the complete stream.
+    """
+
+    DEBUG = "debug"
+    DIAGNOSTIC = "diagnostic"
+    ACTIVITY = "activity"
+    OPERATIONAL = "operational"
+    RELEASE = "release"
+
+    @property
+    def rank(self) -> int:
+        return _TRACE_LEVEL_RANK[self]
+
+    def includes(self, event_level: "TraceLevel") -> bool:
+        """Return whether this minimum level retains ``event_level``."""
+
+        return event_level.rank >= self.rank
+
+
+_TRACE_LEVEL_RANK = {
+    TraceLevel.DEBUG: 10,
+    TraceLevel.DIAGNOSTIC: 20,
+    TraceLevel.ACTIVITY: 30,
+    TraceLevel.OPERATIONAL: 40,
+    TraceLevel.RELEASE: 50,
+}
+
+
 TraceAttribute = str | int | float | bool | None
 
 
@@ -105,12 +138,22 @@ class TraceEvent:
     component: str
     operation: str
     message: str
+    level: TraceLevel = TraceLevel.RELEASE
     status: TraceStatus = TraceStatus.NORMAL
     severity: TraceSeverity = TraceSeverity.NORMAL
     duration_ms: float | None = None
     attributes: Mapping[str, TraceAttribute] = field(
         default_factory=dict
     )
+
+    def __post_init__(self) -> None:
+        # Critical conditions must remain visible even when a caller assigns
+        # a more verbose level that a normal release configuration discards.
+        if (
+            self.severity is TraceSeverity.CRITICAL
+            and self.level is not TraceLevel.RELEASE
+        ):
+            object.__setattr__(self, "level", TraceLevel.RELEASE)
 
 
 class Tracer(Protocol):
@@ -179,6 +222,7 @@ def traced_span(
     component: str,
     operation: str,
     message: str,
+    level: TraceLevel = TraceLevel.ACTIVITY,
     attributes: Mapping[str, TraceAttribute] | None = None,
     context: TraceContext | None = None,
     error_severity: TraceSeverity = TraceSeverity.DEGRADED,
@@ -206,6 +250,7 @@ def traced_span(
                     component=component,
                     operation=operation,
                     message=message,
+                    level=level,
                     status=TraceStatus.ERROR,
                     severity=error_severity,
                     duration_ms=_elapsed_ms(started),
@@ -224,6 +269,7 @@ def traced_span(
                     component=component,
                     operation=operation,
                     message=message,
+                    level=level,
                     status=TraceStatus.SUCCESS,
                     severity=TraceSeverity.NORMAL,
                     duration_ms=_elapsed_ms(started),
