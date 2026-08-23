@@ -14,6 +14,17 @@ from uuid import uuid4
 
 from butler_core.models import ToolDefinition, ToolPermission
 from butler_core.registry import ToolRegistry
+from butler_core.tracing import (
+    NullTracer,
+    TraceContext,
+    TraceEvent,
+    TraceLevel,
+    TraceSeverity,
+    TraceStatus,
+    Tracer,
+    current_trace_context,
+    safe_emit,
+)
 
 
 class ExecutionStatus(str, Enum):
@@ -267,9 +278,11 @@ class ExecutionEngine:
         registry: ToolRegistry,
         *,
         policy: ExecutionPolicy | None = None,
+        tracer: Tracer | None = None,
     ) -> None:
         self._registry = registry
         self._policy = policy or ExecutionPolicy()
+        self._tracer = tracer or NullTracer()
 
     def execute(
         self,
@@ -428,8 +441,8 @@ class ExecutionEngine:
 
         return None
 
-    @staticmethod
     def _result(
+        self,
         request: ExecutionRequest,
         started: int,
         status: ExecutionStatus,
@@ -444,7 +457,7 @@ class ExecutionEngine:
             monotonic_ns() - started
         ) / 1_000_000
 
-        return ExecutionResult(
+        result = ExecutionResult(
             execution_id=request.execution_id,
             tool_name=request.tool_name,
             status=status,
@@ -462,3 +475,75 @@ class ExecutionEngine:
             error_message=error_message,
             validation_errors=validation_errors,
         )
+
+        self._trace_result(result)
+        return result
+
+    def _trace_result(self, result: ExecutionResult) -> None:
+        trace_status, level, severity = _trace_classification(result.status)
+        context = current_trace_context() or TraceContext.root()
+
+        attributes = {
+            "execution_id": result.execution_id,
+            "tool_name": result.tool_name,
+            "execution_status": result.status.value,
+        }
+
+        if result.permission is not None:
+            attributes["permission"] = result.permission.value
+
+        if result.error_code is not None:
+            attributes["error_code"] = result.error_code
+
+        safe_emit(
+            self._tracer,
+            TraceEvent(
+                context=context,
+                component="execution",
+                operation="tool.execute",
+                message=f"Tool execution {result.status.value}",
+                level=level,
+                status=trace_status,
+                severity=severity,
+                duration_ms=result.duration_ms,
+                attributes=attributes,
+            ),
+        )
+
+
+def _trace_classification(
+    status: ExecutionStatus,
+) -> tuple[TraceStatus, TraceLevel, TraceSeverity]:
+    if status is ExecutionStatus.SUCCESS:
+        return (
+            TraceStatus.SUCCESS,
+            TraceLevel.ACTIVITY,
+            TraceSeverity.NORMAL,
+        )
+
+    if status is ExecutionStatus.CONFIRMATION_REQUIRED:
+        return (
+            TraceStatus.WARNING,
+            TraceLevel.OPERATIONAL,
+            TraceSeverity.NORMAL,
+        )
+
+    if status is ExecutionStatus.DENIED:
+        return (
+            TraceStatus.WARNING,
+            TraceLevel.OPERATIONAL,
+            TraceSeverity.NORMAL,
+        )
+
+    if status is ExecutionStatus.INVALID_ARGUMENTS:
+        return (
+            TraceStatus.ERROR,
+            TraceLevel.DIAGNOSTIC,
+            TraceSeverity.DEGRADED,
+        )
+
+    return (
+        TraceStatus.ERROR,
+        TraceLevel.OPERATIONAL,
+        TraceSeverity.DEGRADED,
+    )
