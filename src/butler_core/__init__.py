@@ -33,6 +33,18 @@ from butler_core.planner import (
     ToolPlan,
 )
 from butler_core.registry import ToolRegistry
+from butler_core.tracing import (
+    NullTracer,
+    TraceContext,
+    TraceEvent,
+    TraceStatus,
+    Tracer,
+    current_trace_context,
+    reset_trace_context,
+    set_trace_context,
+    trace_context,
+    traced_span,
+)
 
 
 __all__ = [
@@ -60,6 +72,16 @@ __all__ = [
     "ToolDefinition",
     "ToolPermission",
     "ToolRegistry",
+    "NullTracer",
+    "TraceContext",
+    "TraceEvent",
+    "TraceStatus",
+    "Tracer",
+    "current_trace_context",
+    "reset_trace_context",
+    "set_trace_context",
+    "trace_context",
+    "traced_span",
     "validate_arguments",
 ]
 
