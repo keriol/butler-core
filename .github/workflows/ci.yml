@@ -36,8 +36,19 @@ jobs:
       - name: Compile
         run: python -m compileall -q src tests
 
-      - name: Test
-        run: python -m pytest -q
+      - name: Test with coverage
+        run: >-
+          python -m pytest -q
+          --cov=butler_core
+          --cov-report=term-missing
+          --cov-report=xml:coverage.xml
+
+      - name: Upload coverage XML
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-xml-python-${{ matrix.python-version }}
+          path: coverage.xml
+          if-no-files-found: error
 
       - name: Build distributions
         run: python -m build
