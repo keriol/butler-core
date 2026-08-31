@@ -8,8 +8,10 @@ Core deliberately does **not** own application routing, plugin discovery, concre
 
 ## Install
 
+Published releases provide a Python wheel and source distribution on the GitHub Releases page. Download the wheel for the desired version and install it locally:
+
 ```bash
-python -m pip install butler-core
+python -m pip install ./butler_core-0.2.0-py3-none-any.whl
 ```
 
 Python 3.10 or newer is required.
