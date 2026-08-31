@@ -35,7 +35,11 @@ See [Architecture](docs/architecture.md) for ownership boundaries and [Public co
 
 ### Provider neutral
 
-Core models behavior and boundaries, not concrete services. A tool may eventually call Home Assistant, a local process, a cloud API or something else entirely; Core does not need to know.
+Core models behavior and boundaries, not concrete services. A tool may eventually call Home Assistant, another home-automation platform, a local process, a cloud API or something else entirely; Core does not need to know.
+
+The public [Home Assistant Plugin](https://github.com/keriol/home-assistant-plugin) is a useful ecosystem example of this rule. Home Assistant-specific authentication, transport, state reads and actions belong in that plugin, while Core keeps only reusable contracts. The same architecture is intended to allow another home-automation manager to be integrated by implementing another plugin rather than by adding platform-specific concepts to Core.
+
+The Home Assistant Plugin was initially created as a real proving example around Wilfred and is now being evolved toward a consumer-neutral Butler plugin that can be consumed independently by sibling runtimes. That ongoing migration is implementation work outside Core; this README does not claim it is already part of the current Core 0.2 release contract.
 
 ### Deterministic before fallback
 
@@ -52,6 +56,18 @@ Tracing is optional and storage-agnostic. Trace context can cross execution and 
 ### Domains declare, runtimes host
 
 Domain packages can declare domains, capabilities, deterministic resolvers, tools and verification expectations through Core contracts. Discovery, loading, lifecycle and runtime verification remain responsibilities of higher-level runtimes.
+
+A reusable integration package can therefore be shared by more than one runtime without making those runtimes depend on each other. The intended dependency shape is contracts downward, composition upward:
+
+```text
+              Butler Core
+              /         \
+        Runtime A     Runtime B
+              \         /
+          reusable plugin
+```
+
+The concrete loader/registry topology belongs to the runtimes and plugins involved, not to Core itself.
 
 ## Output semantics
 
