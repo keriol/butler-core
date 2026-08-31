@@ -48,6 +48,22 @@ from butler_core.tracing import (
     trace_context,
     traced_span,
 )
+from butler_core.resolution import (
+    DeterministicResolutionPipeline,
+    RequestResolver,
+    ResolutionResult,
+    ResolutionStatus,
+    ResolverDefinition,
+)
+from butler_core.contributions import (
+    CapabilityDefinition,
+    DomainDefinition,
+    GoalExpectation,
+    PluginDefinition,
+    PluginRegistrar,
+    assert_plugin_conforms,
+    validate_plugin_definition,
+)
 
 
 __all__ = [
@@ -89,12 +105,16 @@ __all__ = [
     "trace_context",
     "traced_span",
     "validate_arguments",
+    "DeterministicResolutionPipeline",
+    "RequestResolver",
+    "ResolutionResult",
+    "ResolutionStatus",
+    "ResolverDefinition",
+    "CapabilityDefinition",
+    "DomainDefinition",
+    "GoalExpectation",
+    "PluginDefinition",
+    "PluginRegistrar",
+    "assert_plugin_conforms",
+    "validate_plugin_definition",
 ]
-
-from butler_core.resolution import (
-    DeterministicResolutionPipeline,
-    RequestResolver,
-    ResolutionResult,
-    ResolutionStatus,
-    ResolverDefinition,
-)
