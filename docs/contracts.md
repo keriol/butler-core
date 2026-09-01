@@ -77,12 +77,31 @@ Argument validation supports the JSON-schema-like subset implemented by Core, in
 
 `CapabilityDefinition` declares behavior owned by a domain and may include deterministic `ResolverDefinition` entries. Its stable identity is `<domain>.<capability>`.
 
-`PluginDefinition` aggregates a self-contained domain contribution:
+A capability may also declare an optional observational `availability_probe`. `PluginDefinition` may declare an optional package-level `readiness_probe` for prerequisites that affect the contribution as a whole. Core stores these callables but does not decide when to run them, how to cache their results, or how to present them.
+
+`AvailabilityResult` carries an `AvailabilityState`, an optional machine-readable `reason_code`, and human-readable diagnostic text. The provider/runtime owns concrete reason codes. Core defines these generic states:
+
+- `USABLE`: the evaluated surface can be invoked;
+- `DEGRADED`: at least part of the evaluated surface remains usable, but not all of it is fully usable;
+- `UNAVAILABLE`: the evaluated surface is explicitly not usable;
+- `ERROR`: readiness evaluation itself failed or returned an invalid result;
+- `UNKNOWN`: readiness has not been established conclusively.
+
+A declaration with no probe evaluates to `UNKNOWN`, not `UNAVAILABLE`. This is the backwards-compatible default semantic for existing declarations. Core intentionally does not decide whether a host should allow, warn, defer or block routing for `UNKNOWN`; that policy belongs to the consuming runtime.
+
+`evaluate_availability_probe()` provides safe probe evaluation. A raised exception becomes an `ERROR` result with Core's generic `probe_failed` reason rather than masquerading as legitimate provider unavailability. Provider-specific checks and reason codes remain outside Core.
+
+`aggregate_availability()` can derive a pure package summary from already-evaluated capability results. Mixed usable/non-usable capability states produce `DEGRADED`, while healthy capabilities remain independently usable. The helper owns no registry, lifecycle, retry, repair or persistence behavior.
+
+Readiness probes are observational only. They may inspect injected configuration, dependencies, permissions or provider health, but they must not imply installation, credential mutation, deployment, repair or other ACTION behavior.
+
+`PluginDefinition` otherwise aggregates a self-contained domain contribution:
 
 - domains;
 - capabilities;
 - tool-registration callable;
-- verification expectations.
+- verification expectations;
+- optional package readiness probe.
 
 The name "plugin" describes the contribution contract only. Core does not provide discovery, a plugin registry, loading or lifecycle management.
 
