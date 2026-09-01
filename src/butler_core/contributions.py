@@ -5,6 +5,7 @@ import re
 from typing import Callable, Mapping
 
 from butler_core.models import ToolDefinition
+from butler_core.readiness import AvailabilityProbe
 from butler_core.registry import ToolRegistry
 from butler_core.resolution import ResolverDefinition
 
@@ -34,16 +35,27 @@ class DomainDefinition:
 
 @dataclass(frozen=True)
 class CapabilityDefinition:
-    """Provider-neutral declaration of behavior owned by one domain."""
+    """Provider-neutral declaration of behavior owned by one domain.
+
+    ``availability_probe`` is optional and observational only. A missing probe
+    carries no negative implication; consumers evaluate it as UNKNOWN rather
+    than persisting a mutable availability flag.
+    """
 
     name: str
     domain: str
     description: str = ""
     resolvers: tuple[ResolverDefinition, ...] = ()
+    availability_probe: AvailabilityProbe | None = None
 
     def __post_init__(self) -> None:
         _validate_public_name("capability", self.name)
         _validate_public_name("domain", self.domain)
+
+        if self.availability_probe is not None and not callable(
+            self.availability_probe
+        ):
+            raise TypeError("Capability availability_probe must be callable.")
 
         resolvers = tuple(self.resolvers)
         if not all(isinstance(item, ResolverDefinition) for item in resolvers):
@@ -104,6 +116,8 @@ class PluginDefinition:
     """Provider-neutral declaration contributed by one domain package.
 
     Discovery, loading and lifecycle deliberately remain runtime concerns.
+    ``readiness_probe`` is optional and observational only; hosts own when and
+    how it is evaluated, cached or presented.
     """
 
     name: str
@@ -113,6 +127,7 @@ class PluginDefinition:
     domains: tuple[DomainDefinition, ...] = ()
     capabilities: tuple[CapabilityDefinition, ...] = ()
     verification: tuple[GoalExpectation, ...] = ()
+    readiness_probe: AvailabilityProbe | None = None
 
     def __post_init__(self) -> None:
         _validate_public_name("plugin", self.name)
@@ -120,6 +135,8 @@ class PluginDefinition:
             raise ValueError("Plugin version cannot be empty.")
         if not callable(self.register):
             raise TypeError("Plugin register must be callable.")
+        if self.readiness_probe is not None and not callable(self.readiness_probe):
+            raise TypeError("Plugin readiness_probe must be callable.")
 
         domains = tuple(self.domains)
         capabilities = tuple(self.capabilities)
@@ -201,7 +218,6 @@ def validate_plugin_definition(plugin: PluginDefinition) -> None:
     """Validate cross-reference conformance not requiring a host runtime."""
 
     declared_tools: set[str] = set()
-    registry = ToolRegistry()
 
     class RecordingRegistry(ToolRegistry):
         def register(self, tool: ToolDefinition) -> None:
