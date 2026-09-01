@@ -32,6 +32,13 @@ from butler_core.planner import (
     PlannerStatus,
     ToolPlan,
 )
+from butler_core.readiness import (
+    AvailabilityProbe,
+    AvailabilityResult,
+    AvailabilityState,
+    aggregate_availability,
+    evaluate_availability_probe,
+)
 from butler_core.registry import ToolRegistry
 from butler_core.tracing import (
     NullTracer,
@@ -110,6 +117,11 @@ __all__ = [
     "ResolutionResult",
     "ResolutionStatus",
     "ResolverDefinition",
+    "AvailabilityProbe",
+    "AvailabilityResult",
+    "AvailabilityState",
+    "aggregate_availability",
+    "evaluate_availability_probe",
     "CapabilityDefinition",
     "DomainDefinition",
     "GoalExpectation",
