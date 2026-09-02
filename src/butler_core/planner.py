@@ -38,6 +38,11 @@ class ToolPlan:
     )
     confidence: float = 0.0
     reason: str = ""
+    user_authorized: bool = False
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.user_authorized, bool):
+            raise TypeError("user_authorized must be a bool.")
 
 
 @dataclass(frozen=True)
@@ -251,11 +256,15 @@ class ButlerPlanner:
                 "arguments must be empty without a tool.",
             )
 
+        # Provider/model output never crosses the trusted explicit-user
+        # authorization boundary. Only programmatic trusted code can construct
+        # a ToolPlan with user_authorized=True.
         return ToolPlan(
             tool_name=tool_name,
             arguments=arguments,
             confidence=float(confidence),
             reason=reason,
+            user_authorized=False,
         )
 
     @staticmethod
