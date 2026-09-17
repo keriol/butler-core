@@ -39,7 +39,7 @@ Core models behavior and boundaries, not concrete services. A tool may eventuall
 
 The public [Home Assistant Plugin](https://github.com/keriol/home-assistant-plugin) is a useful ecosystem example of this rule. Home Assistant-specific authentication, transport, state reads and actions belong in that plugin, while Core keeps only reusable contracts. The same architecture is intended to allow another home-automation manager to be integrated by implementing another plugin rather than by adding platform-specific concepts to Core.
 
-The Home Assistant Plugin was initially created as a real proving example around Wilfred and is now being evolved toward a consumer-neutral Butler plugin that can be consumed independently by sibling runtimes. That ongoing migration is implementation work outside Core; this README does not claim it is already part of the current Core 0.2 release contract.
+The Home Assistant Plugin was initially created as a real proving example around Wilfred and has since moved to a consumer-neutral Butler Core boundary. Its current `0.2.0.dev0` development line depends on Core-owned contracts rather than on Wilfred, allowing sibling runtimes to consume the same integration package independently. That migration is ecosystem evidence for Core's provider-neutral boundary, not a retroactive claim about the released Core `0.2.0` artifact.
 
 ### Deterministic before fallback
 
