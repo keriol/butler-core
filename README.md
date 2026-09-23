@@ -21,7 +21,7 @@ Python 3.10 or newer is required.
 Butler Core 0.2 exposes these main contract families:
 
 - **Tools and registry**: `ToolPermission`, `ToolDefinition`, `ToolRegistry`
-- **Planning**: `ButlerPlanner`, `PlannerProvider`, `PlannerResult`, `PlannerStatus`, `ToolPlan`
+- **Planning**: `ButlerPlanner`, `PlannerProvider`, `PlannerResult`, `PlannerStatus`, `ToolPlan`, `ToolPlanSequence`
 - **Deterministic resolution**: `ResolverDefinition`, `RequestResolver`, `ResolutionResult`, `ResolutionStatus`, `DeterministicResolutionPipeline`
 - **Execution**: `ExecutionRequest`, `ExecutionResult`, `ExecutionStatus`, `ExecutionPolicy`, `ExecutionEngine`
 - **Asynchronous jobs**: `JobRequest`, `JobResult`, `JobStatus`, `JobStore`, `JobRunner`
@@ -44,6 +44,14 @@ The Home Assistant Plugin was initially created as a real proving example around
 ### Deterministic before fallback
 
 `DeterministicResolutionPipeline` runs ordered deterministic resolvers first. The first resolver that returns `HANDLED` wins. An optional fallback can be injected by the host, but Core makes no assumption that the fallback is AI-backed.
+
+### Sequential plans stay declarative
+
+`ToolPlanSequence` represents an ordered non-empty sequence of concrete
+`ToolPlan` values. It is only a provider-neutral declaration contract: Core
+does not execute sequences, retry failed steps, schedule work or own workflow
+lifecycle. Higher-level runtimes decide how to orchestrate the sequence and
+must still route each step through normal execution policy.
 
 ### Policy before execution
 
