@@ -46,6 +46,55 @@ class ToolPlan:
 
 
 @dataclass(frozen=True)
+class ToolPlanSequence:
+    steps: tuple[ToolPlan, ...]
+    confidence: float = 0.0
+    reason: str = ""
+
+    def __post_init__(self) -> None:
+        if not self.steps:
+            raise ValueError("steps must contain at least one ToolPlan.")
+
+        for index, step in enumerate(self.steps):
+            if not isinstance(step, ToolPlan):
+                raise TypeError(
+                    f"steps[{index}] must be a ToolPlan."
+                )
+            if step.tool_name is None:
+                raise ValueError(
+                    f"steps[{index}] must reference a concrete tool."
+                )
+
+        if (
+            isinstance(self.confidence, bool)
+            or not isinstance(self.confidence, (int, float))
+            or not 0 <= self.confidence <= 1
+        ):
+            raise ValueError(
+                "confidence must be between 0 and 1."
+            )
+
+        if not isinstance(self.reason, str):
+            raise TypeError("reason must be a string.")
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "steps": [
+                {
+                    "tool_name": step.tool_name,
+                    "arguments": dict(step.arguments),
+                    "confidence": step.confidence,
+                    "reason": step.reason,
+                    "user_authorized": step.user_authorized,
+                }
+                for step in self.steps
+            ],
+            "confidence": float(self.confidence),
+            "reason": self.reason,
+        }
+
+
+@dataclass(frozen=True)
 class PlannerResult:
     status: PlannerStatus
     duration_ms: float
