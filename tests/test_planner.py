@@ -10,6 +10,8 @@ from butler_core.models import (
 from butler_core.planner import (
     ButlerPlanner,
     PlannerStatus,
+    ToolPlan,
+    ToolPlanSequence,
 )
 from butler_core.registry import ToolRegistry
 
@@ -371,3 +373,99 @@ class ButlerPlannerTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ToolPlanSequenceTests(unittest.TestCase):
+    def test_preserves_order_and_serializes_steps(self) -> None:
+        sequence = ToolPlanSequence(
+            steps=(
+                ToolPlan(
+                    tool_name="read_state",
+                    arguments={"entity": "sensor.demo"},
+                    confidence=1.0,
+                    reason="Read current state.",
+                ),
+                ToolPlan(
+                    tool_name="set_state",
+                    arguments={"value": "on"},
+                    confidence=0.9,
+                    reason="Apply requested state.",
+                    user_authorized=True,
+                ),
+            ),
+            confidence=0.95,
+            reason="Two-step sequence.",
+        )
+
+        self.assertEqual(
+            [step.tool_name for step in sequence.steps],
+            ["read_state", "set_state"],
+        )
+        self.assertEqual(
+            sequence.to_dict(),
+            {
+                "steps": [
+                    {
+                        "tool_name": "read_state",
+                        "arguments": {"entity": "sensor.demo"},
+                        "confidence": 1.0,
+                        "reason": "Read current state.",
+                        "user_authorized": False,
+                    },
+                    {
+                        "tool_name": "set_state",
+                        "arguments": {"value": "on"},
+                        "confidence": 0.9,
+                        "reason": "Apply requested state.",
+                        "user_authorized": True,
+                    },
+                ],
+                "confidence": 0.95,
+                "reason": "Two-step sequence.",
+            },
+        )
+
+    def test_requires_at_least_one_step(self) -> None:
+        with self.assertRaisesRegex(
+            ValueError,
+            "at least one ToolPlan",
+        ):
+            ToolPlanSequence(steps=())
+
+    def test_rejects_non_tool_plan_step(self) -> None:
+        with self.assertRaisesRegex(
+            TypeError,
+            r"steps\[0\] must be a ToolPlan",
+        ):
+            ToolPlanSequence(steps=("not-a-plan",))  # type: ignore[arg-type]
+
+    def test_rejects_noop_step(self) -> None:
+        with self.assertRaisesRegex(
+            ValueError,
+            "must reference a concrete tool",
+        ):
+            ToolPlanSequence(
+                steps=(
+                    ToolPlan(
+                        tool_name=None,
+                        arguments={},
+                    ),
+                )
+            )
+
+    def test_validates_overall_confidence_and_reason(self) -> None:
+        step = ToolPlan(tool_name="echo")
+
+        for confidence in (-0.1, 1.1, True, "high"):
+            with self.subTest(confidence=confidence):
+                with self.assertRaises(ValueError):
+                    ToolPlanSequence(
+                        steps=(step,),
+                        confidence=confidence,  # type: ignore[arg-type]
+                    )
+
+        with self.assertRaises(TypeError):
+            ToolPlanSequence(
+                steps=(step,),
+                reason=42,  # type: ignore[arg-type]
+            )
