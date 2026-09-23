@@ -31,6 +31,7 @@ from butler_core.planner import (
     PlannerResult,
     PlannerStatus,
     ToolPlan,
+    ToolPlanSequence,
 )
 from butler_core.readiness import (
     AvailabilityProbe,
@@ -95,6 +96,7 @@ __all__ = [
     "PlannerResult",
     "PlannerStatus",
     "ToolPlan",
+    "ToolPlanSequence",
     "ToolDefinition",
     "ToolPermission",
     "ToolRegistry",
