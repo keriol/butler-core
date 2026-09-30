@@ -66,7 +66,28 @@ Execution uses a copied Python context when invoking a tool in its worker thread
 
 A job request can carry serialized `TraceContext` metadata, allowing a runtime to link later asynchronous work to the originating Butler operation.
 
-## Tracing
+## Georges observability and tracing
+
+The existing tracing family is the provider-neutral **Georges** observability contract of Butler Core.
+
+Georges is an architectural name for these Core-owned contracts, not a new parallel API. Existing public types such as `TraceContext`, `TraceEvent`, `Tracer` and `safe_emit()` remain canonical and backwards-compatible.
+
+Core owns:
+
+- trace/correlation context;
+- structured event semantics;
+- levels, statuses and severities;
+- the tracer consumer protocol;
+- fail-safe emission and no-op behavior.
+
+Concrete Butler runtimes own:
+
+- storage and persistence;
+- retention and rotation;
+- operational viewers/query surfaces;
+- deployment-specific presentation.
+
+Reusable plugins should emit Core trace events rather than defining a second observability protocol when the Core contract is sufficient.
 
 Tracing is an observability contract, not a logging implementation.
 
