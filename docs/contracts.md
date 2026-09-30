@@ -53,7 +53,13 @@ Argument validation supports the JSON-schema-like subset implemented by Core, in
 
 `JobRequest.with_trace_context()` and `with_current_trace()` allow the originating trace context to be carried through metadata.
 
-## Tracing
+## Georges observability / tracing
+
+The public tracing family is Butler Core's provider-neutral **Georges** observability contract.
+
+"Georges" does not introduce replacement types. The existing `TraceContext`, `TraceEvent`, `Tracer`, `NullTracer`, `safe_emit()` and related helpers remain the canonical API.
+
+A reusable plugin should normally consume these Core contracts directly and let its host runtime inject a concrete tracer. Storage, retention and viewers remain outside Core.
 
 `TraceContext` carries `trace_id`, `span_id` and an optional `parent_span_id`.
 

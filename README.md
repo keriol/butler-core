@@ -25,7 +25,7 @@ Butler Core 0.2 exposes these main contract families:
 - **Deterministic resolution**: `ResolverDefinition`, `RequestResolver`, `ResolutionResult`, `ResolutionStatus`, `DeterministicResolutionPipeline`
 - **Execution**: `ExecutionRequest`, `ExecutionResult`, `ExecutionStatus`, `ExecutionPolicy`, `ExecutionEngine`
 - **Asynchronous jobs**: `JobRequest`, `JobResult`, `JobStatus`, `JobStore`, `JobRunner`
-- **Tracing**: `TraceContext`, `TraceEvent`, `TraceLevel`, `TraceStatus`, `TraceSeverity`, `Tracer`, `NullTracer`
+- **Georges observability / tracing**: `TraceContext`, `TraceEvent`, `TraceLevel`, `TraceStatus`, `TraceSeverity`, `Tracer`, `NullTracer`
 - **Domain contributions**: `DomainDefinition`, `CapabilityDefinition`, `PluginDefinition`, `GoalExpectation` and conformance helpers
 - **Output**: `OutputRequest`, `OutputKind`, `OutputPriority`, `OutputAdapter`, `OutputDeliveryStatus`, `OutputDeliveryResult`
 
@@ -58,6 +58,12 @@ must still route each step through normal execution policy.
 `ExecutionEngine` validates tool arguments and applies permission policy before invoking a tool. `READ`, `ACTION` and `DANGEROUS` operations remain explicit contracts rather than frontend conventions.
 
 ### Observable boundaries
+
+The provider-neutral tracing API is the Butler Core **Georges** observability contract.
+
+Georges in Core means correlation, structured trace events, severity/status/level semantics, fail-safe emission and the tracer protocol. It does **not** mean file logging, databases, viewers or runtime-specific presentation.
+
+Concrete Butler runtimes provide the sink. For example, Alfred may persist Georges events to JSONL, while another Butler may choose a different backend without changing reusable plugins.
 
 Tracing is optional and storage-agnostic. Trace context can cross execution and asynchronous-job boundaries while tracer failures are prevented from changing execution outcomes.
 
