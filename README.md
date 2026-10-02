@@ -11,14 +11,14 @@ Core deliberately does **not** own application routing, plugin discovery, concre
 Published releases provide a Python wheel and source distribution on the GitHub Releases page. Download the wheel for the desired version and install it locally:
 
 ```bash
-python -m pip install ./butler_core-0.2.0-py3-none-any.whl
+python -m pip install ./butler_core-0.3.0-py3-none-any.whl
 ```
 
 Python 3.10 or newer is required.
 
 ## Public contract families
 
-Butler Core 0.2 exposes these main contract families:
+Butler Core 0.3 exposes these main contract families:
 
 - **Tools and registry**: `ToolPermission`, `ToolDefinition`, `ToolRegistry`
 - **Planning**: `ButlerPlanner`, `PlannerProvider`, `PlannerResult`, `PlannerStatus`, `ToolPlan`, `ToolPlanSequence`
@@ -39,7 +39,7 @@ Core models behavior and boundaries, not concrete services. A tool may eventuall
 
 The public [Home Assistant Plugin](https://github.com/keriol/home-assistant-plugin) is a useful ecosystem example of this rule. Home Assistant-specific authentication, transport, state reads and actions belong in that plugin, while Core keeps only reusable contracts. The same architecture is intended to allow another home-automation manager to be integrated by implementing another plugin rather than by adding platform-specific concepts to Core.
 
-The Home Assistant Plugin was initially created as a real proving example around Wilfred and has since moved to a consumer-neutral Butler Core boundary. Its current `0.2.0.dev0` development line depends on Core-owned contracts rather than on Wilfred, allowing sibling runtimes to consume the same integration package independently. That migration is ecosystem evidence for Core's provider-neutral boundary, not a retroactive claim about the released Core `0.2.0` artifact.
+The Home Assistant Plugin was initially created as a real proving example around Wilfred and has since moved to a consumer-neutral Butler Core boundary. Its Ignition release line depends on Core-owned contracts rather than on Wilfred, allowing sibling runtimes to consume the same integration package independently.
 
 ### Deterministic before fallback
 
@@ -91,6 +91,6 @@ For asynchronous providers, `OutputDeliveryStatus.ACCEPTED` means the provider a
 
 ## Project status
 
-Butler Core is pre-1.0. The 0.2 line establishes the shared execution, observability and domain-contribution baseline intended for reuse by Butler runtimes.
+Butler Core is pre-1.0. The 0.3 line is the first Core generation validated inside the Android-reaching Ignition network while remaining provider-neutral and frontend-agnostic.
 
 Release-specific changes are documented under [`docs/releases/`](docs/releases/).
